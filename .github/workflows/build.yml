@@ -1,0 +1,38 @@
+name: Build Lime Kernel
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ lime-q-oss ]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc bison build-essential ccache curl flex gcc clang git libncurses5-dev libssl-dev zip unzip wget
+
+    - name: Set up kernel build
+      run: |
+        export ARCH=arm64
+        export SUBARCH=arm64
+        export KBUILD_BUILD_USER=github
+        export KBUILD_BUILD_HOST=actions
+        mkdir -p out
+
+    - name: Build kernel
+      run: |
+        make O=out ARCH=arm64 lime_defconfig
+        make -j$(nproc --all) O=out ARCH=arm64
+
+    - name: Upload kernel
+      uses: actions/upload-artifact@v3
+      with:
+        name: lime-kernel
+        path: out/arch/arm64/boot/Image.gz-dtb
