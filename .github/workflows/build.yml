@@ -1,0 +1,42 @@
+name: Build Lime Kernel
+
+on:
+  workflow_dispatch:   # lets you run manually
+  push:
+    branches: [ lime-q-oss ]   # runs if you push changes to this branch
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Setup build environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache curl flex gcc \
+            git gnupg gperf libncurses5-dev libssl-dev libxml2-utils lzop \
+            openjdk-8-jdk python3 python3-pip rsync unzip zip zlib1g-dev
+
+      - name: Download toolchain
+        run: |
+          git clone https://github.com/kdrag0n/proton-clang --depth=1 clang
+
+      - name: Build kernel
+        run: |
+          export PATH=$(pwd)/clang/bin:$PATH
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export KBUILD_BUILD_USER=github
+          export KBUILD_BUILD_HOST=actions
+          make O=out ARCH=arm64 lime_defconfig
+          make -j$(nproc --all) O=out ARCH=arm64 \
+            CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+
+      - name: Upload zImage/dtb
+        uses: actions/upload-artifact@v3
+        with:
+          name: kernel-build
+          path: out/arch/arm64/boot/Image.gz-dtb
